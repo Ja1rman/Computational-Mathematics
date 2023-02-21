@@ -2,7 +2,9 @@ package main
 
 import (
     "fmt"
-    "math"
+    "os"
+    "strings"
+    "strconv"
 )
 
 func Solve(matrix [][]float64, answers []float64) (string, []float64) {
@@ -19,11 +21,10 @@ func Solve(matrix [][]float64, answers []float64) (string, []float64) {
         // если главный элемент равен нулю, то нужно найти другой методом перестановки колонок в матрице
         if main_elem == 0 {
             var k int
-
-            // двигаемся вправо от диаганаотного элемента, для поиска максимального по модулю элемента
             for j := i; j < n; j++ {
-                if math.Abs(matrix[i][index[j]]) > main_elem {
+                if matrix[i][index[j]] != .0 {
                     k = j
+                    break
                 }
             }
 
@@ -129,6 +130,36 @@ func FindMinor(matrix [][]float64, i int) ([][]float64) {
 
 
 func InputFromFile() ([][]float64, []float64) {
+
+    b, err := os.ReadFile("input.txt")
+    if err != nil {
+        panic(err)
+    }
+    data := string(b)
+    
+    input := strings.FieldsFunc(data, func (r rune) bool {
+        return r == ' ' || r == '\n'
+    })
+    n, _ := strconv.Atoi(input[0])
+    var matrix [][]float64
+    answers := make([]float64, n)
+    for i := 0; i < n; i++ {
+        row := make([]float64, n)
+        for j := 0; j < n; j++ {
+            row[j], _ = strconv.ParseFloat(input[i*n+1+j], 64)
+        }
+        matrix = append(matrix, row)
+    }
+    for i := 0; i < n; i++ {
+        answers[i], _ = strconv.ParseFloat(input[n*n+1+i], 64)
+    }
+    fmt.Println(matrix, answers)
+
+    return matrix, answers
+}
+
+
+func InputFromKeyboard() ([][]float64, []float64) {
     n := 0
     var matrix [][]float64
     fmt.Println("Размер матрицы:")
@@ -152,12 +183,21 @@ func InputFromFile() ([][]float64, []float64) {
 
 
 func main() {
-    matrix, answers := InputFromFile()
+    fmt.Println("Введите + для ввода из файла и любой другой символ для ввода в консоли:")
+    input_type := ""
+    fmt.Scanln(&input_type)
+    var matrix [][]float64
+    var answers []float64
+    if input_type == "-" {
+        matrix, answers = InputFromKeyboard()
+    } else {
+        matrix, answers = InputFromFile()
+    }
     det := FindDeterminant(matrix)
     fmt.Println("Определитель равен:", det)
     if det == 0 {
         fmt.Println("Система является несовместной.")
-        //return
+        return
     }
     state, result := Solve(matrix, answers)
     if state == "error" {

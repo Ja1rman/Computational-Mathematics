@@ -1,29 +1,31 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "strings"
-    "strconv"
+	"fmt"
+	"math"
+	"os"
+	"strconv"
+	"strings"
 )
 
 func Solve(matrix [][]float64, answers []float64) (string, []float64) {
-    n := len(matrix)
+    n := len(matrix)    
     index := make([]int, n)
 	for i := range index {
 		index[i] = i
 	}
+    per := 0.
     // прямой ход
     for i := 0; i < n; i++ {
         // главный элемент  по умолчанию
         main_elem := matrix[i][index[i]]
-
         // если главный элемент равен нулю, то нужно найти другой методом перестановки колонок в матрице
         if main_elem == 0 {
             var k int
             for j := i; j < n; j++ {
                 if matrix[i][index[j]] != .0 {
                     k = j
+                    per += 1
                     break
                 }
             }
@@ -47,30 +49,42 @@ func Solve(matrix [][]float64, answers []float64) (string, []float64) {
         }
 
         // деление элементов строки на главный элемент
-        for j := 0; j < n; j++ {
-            matrix[i][index[j]] /= main_elem
-        }
-        answers[i] /= main_elem
+        //for j := 0; j < n; j++ {
+        //    matrix[i][index[j]] /= main_elem
+        //}
+        //answers[i] /= main_elem
 
         // вычитание текущей строки из всех ниже расположенных строк с занулением i-ого элемента в каждой из них
         for j := i + 1; j < n; j++ {
-            main_elem = matrix[j][index[i]];
+            main_elem = matrix[j][index[i]]
+            p := main_elem/matrix[i][index[i]]
             for m := 0; m < n; m++ {
-                matrix[j][index[m]] -= matrix[i][index[m]]*main_elem
+                //matrix[j][index[m]] -= matrix[i][index[m]]*main_elem
+                matrix[j][index[m]] -= matrix[i][index[m]] * p
             }
-            answers[j] -= answers[i]*main_elem
+            answers[j] -= answers[i]*p
         }
     }
     fmt.Println("Треугольная Матрица:")
     for i := range matrix {
         for j := range matrix[i] {
-            fmt.Printf("%f ", matrix[i][j])
+            fmt.Printf("%f ", matrix[i][index[j]])
         }
         fmt.Printf("| %f\n", answers[i])
     }
-
+    det := math.Pow(-1, per)
+    for i := 0; i < n; i++ {
+        det *= matrix[i][index[i]]
+    }
+    fmt.Println("Определитель по матрице", det)
     result := make([]float64, len(answers))
-
+    for i := 0; i < n; i++ {
+        main_elem := matrix[i][index[i]]
+        for j := 0; j < n; j++ {
+            matrix[i][index[j]] /= main_elem
+        }
+        answers[i] /= main_elem
+    }
     // обратный ход
 	for i := n - 1; i >= 0; i-- {
 		// начальное значение элемента x[i]
@@ -85,12 +99,12 @@ func Solve(matrix [][]float64, answers []float64) (string, []float64) {
     for i := range matrix {
         r[i] = answers[i]
         for j := range matrix[i] {
-            r[i] -= matrix[i][j] * result[j]
+            r[i] -= matrix[i][index[j]] * result[j]
         }
     }
     fmt.Println("Вектор невязок:")
     for i := range matrix {
-        fmt.Printf("%f, ", r[i])
+        fmt.Printf("%.20f, ", r[i])
     }
     fmt.Print("\n\n")
     return "ok", result
@@ -182,6 +196,7 @@ func InputFromKeyboard() ([][]float64, []float64) {
 
 
 func main() {
+    fmt.Println("Вариант 27")
     fmt.Println("Введите + для ввода из файла и любой другой символ для ввода в консоли:")
     input_type := ""
     fmt.Scanln(&input_type)
@@ -196,7 +211,7 @@ func main() {
     fmt.Println("Определитель равен:", det)
     if det == 0 {
         fmt.Println("Система является несовместной.")
-        return
+        //return
     }
     state, result := Solve(matrix, answers)
     if state == "error" {

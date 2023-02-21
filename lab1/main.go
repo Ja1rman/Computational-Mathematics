@@ -153,7 +153,6 @@ func InputFromFile() ([][]float64, []float64) {
     for i := 0; i < n; i++ {
         answers[i], _ = strconv.ParseFloat(input[n*n+1+i], 64)
     }
-    fmt.Println(matrix, answers)
 
     return matrix, answers
 }

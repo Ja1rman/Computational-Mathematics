@@ -4,6 +4,7 @@ import (
     "fmt"
     "math"
     "os"
+    "io/ioutil"
     "bufio"
     "log"
     "strconv"
@@ -17,7 +18,7 @@ var type_of_func float64 = 1
 func InputFromFile() (float64, float64, float64) {
     var arr []float64
 
-    file, err := os.Open("input.txt")
+    file, err := os.Open("data/input.txt")
     if err != nil {
         log.Fatal(err)
     }
@@ -145,16 +146,25 @@ func verifyInputs(a float64, b float64, eps float64) bool {
     }
 
     // Проверяем, что на интервале [a, b] нет других корней
-    prev := derivative(a)
+    start := derivative(a)
+    check_up := 1
+    check_down := 1
+    prev := start
+
     for i := a; i <= b; i += 0.1 {
         pr := derivative(i)
-        if pr * prev < 0 {
-            print("Error: Несколько решений на интервале.")
-            return false
+        if pr < prev {
+            check_up = 0
+        }
+        if prev < pr {
+            check_down = 0
         }
         prev = pr
     }
-    
+    if !((check_down == 1 || check_up == 1) && start * prev < 0) {
+        fmt.Println("Error: много корней на промежутке.")
+        return false
+    }
 
     return true
 }
@@ -187,7 +197,14 @@ func drawPlot(a float64, b float64) {
     p.Add(line)
 
     // Сохраняем график в файл
-    if err := p.Save(4*vg.Inch, 4*vg.Inch, "plot.png"); err != nil {
+    if err := p.Save(4*vg.Inch, 4*vg.Inch, "data/plot.png"); err != nil {
+        panic(err)
+    }
+}
+
+func saveToFile(data string) {
+    err := ioutil.WriteFile("data/output.txt", []byte(data), 0644)
+    if err != nil {
         panic(err)
     }
 }
@@ -203,6 +220,11 @@ func main() {
     } else {
         a, b, eps = InputFromFile()
     }
+    fmt.Println("Вывести результат в файл (+) или в терминал (-)?")
+    output_type := ""
+    fmt.Scanln(&output_type)
+    
+    
 
     fmt.Println("\nВыберите номер функции")
     fmt.Print("1 - 2.335x^3 + 3.98x^2 - 4.52x - 3.11\n" +
@@ -241,7 +263,11 @@ func main() {
         log.Fatal("Метода не существует")
     }
     
-
     // выводим результат
-    fmt.Println("Solution:", x, fx, iters)
+    if output_type == "-" {
+        fmt.Println("Решение:", x, fx, iters)
+    } else {
+        saveToFile(strconv.FormatFloat(x, 'E', -1, 64) + " " +
+            strconv.FormatFloat(fx, 'E', -1, 64) + " " + strconv.Itoa(iters))
+    }
 }

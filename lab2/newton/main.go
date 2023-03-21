@@ -5,34 +5,23 @@ import (
     "math"
     "gonum.org/v1/plot"
     "gonum.org/v1/plot/plotter"
-    "gonum.org/v1/plot/vg"
     "gonum.org/v1/plot/plotutil"
+    "gonum.org/v1/plot/vg"
+    "os/exec"
 )
 
 const (
-    tol   = 0.01
-    maxIt = 100
+    eps   = 0.01
+    maxIt = 1000
 )
 
 type Func func(x []float64) []float64
 type Jacobian func(x []float64, jac [][]float64) [][]float64
 
+
 func Newton(f Func, J Jacobian, x []float64) ([]float64, int, error) {
     n := len(x)
-
     for it := 0; it < maxIt; it++ {
-        fx := f(x)
-        fmt.Println("Вектор погрешностей:", fx)
-        // Проверить сходимость
-        rms := 0.0
-        for i := range fx {
-            rms += fx[i] * fx[i]
-        }
-        rms = math.Sqrt(rms / float64(n))
-        if rms < tol {
-            return x, it, nil
-        }
-
         // Вычисление ябиана
         jac := make([][]float64, n)
         for i := range jac {
@@ -41,63 +30,100 @@ func Newton(f Func, J Jacobian, x []float64) ([]float64, int, error) {
         J(x, jac)
 
         // Решение линейной системы
-        dx, err := SolveLinearSystem(jac, fx)
-        if err != nil {
-            return nil, it, err
+        fx := f(x)
+        dx, err := Solve(jac, fx)
+        if err != "ok" {
+            return nil, it, fmt.Errorf(err)
         }
-
+        totalDX := dx[0]
+        for j := range dx {
+            if math.Abs(dx[j]) > totalDX {
+                totalDX = math.Abs(dx[j])
+            }
+        }
         // Обновление x
         for j := range x {
             x[j] -= dx[j]
         }
+        fx = f(x)
+        
+        for j := range x {
+            fmt.Print(x[j], " ")
+        }
+        fmt.Println()
+        if totalDX <= eps {
+            return x, it+1, nil
+        }
     }
 
-    return nil, 0, fmt.Errorf("Newton method failed to converge")
+    return nil, 0, fmt.Errorf("Метод Ньютона не сходится за %d итераций", maxIt)
 }
 
-func SolveLinearSystem(A [][]float64, b []float64) ([]float64, error) {
-    n := len(A)
-    if len(b) != n {
-        return nil, fmt.Errorf("invalid dimensions")
-    }
 
-    // прямой ход Гаусса
-    for k := 0; k < n; k++ {
-        // Найти точку опоры
-        maxRow := k
-        for i := k + 1; i < n; i++ {
-            if math.Abs(A[i][k]) > math.Abs(A[maxRow][k]) {
-                maxRow = i
+func Solve(matrix [][]float64, answers []float64) ([]float64, string) {
+    n := len(matrix)    
+    index := make([]int, n)
+	for i := range index {
+		index[i] = i
+	}
+    per := 0.
+    // прямой ход
+    for i := 0; i < n; i++ {
+        // главный элемент  по умолчанию
+        main_elem := matrix[i][index[i]]
+        // если главный элемент равен нулю, то нужно найти другой методом перестановки колонок в матрице
+        if main_elem == 0 {
+            var k int
+            for j := i; j < n; j++ {
+                if matrix[i][index[j]] != .0 {
+                    k = j
+                    per += 1
+                    break
+                }
+            }
+            if k > 0 {
+                // если удалось найти главный элемент, меняем местами колонки, так чтобы главный элемент встал в диагональ матрицы
+                index[i], index[k] = index[k], index[i]
+            }
+            // главный элемента текущей строки из диагонали
+            main_elem = matrix[i][index[i]];
+        }
+        // если главный элемент строки всё ещё равен 0, то метод гаусса не работает (можно не проверять, так как считали определитель)
+        if main_elem == 0 {
+            if answers[i] == 0 {
+                return answers, "Система имеет множество решений"
+            } else {
+                return answers, "Система не имеет решений"
             }
         }
 
-        // Поменять местами строки
-        A[k], A[maxRow] = A[maxRow], A[k]
-        b[k], b[maxRow] = b[maxRow], b[k]
-
-        for i := k + 1; i < n; i++ {
-            factor := A[i][k] / A[k][k]
-            for j := k + 1; j < n; j++ {
-                A[i][j] -= factor * A[k][j]
-            }
-            b[i] -= factor * b[k]
-        }
-    }
-
-    // Обратный ход
-    x := make([]float64, n)
-    for i := n - 1; i >= 0; i-- {
-        sum := b[i]
+        // вычитание текущей строки из всех ниже расположенных строк с занулением i-ого элемента в каждой из них
         for j := i + 1; j < n; j++ {
-            sum -= A[i][j] * x[j]
+            main_elem = matrix[j][index[i]]
+            p := main_elem/matrix[i][index[i]]
+            for m := 0; m < n; m++ {
+                matrix[j][index[m]] -= matrix[i][index[m]] * p
+            }
+            answers[j] -= answers[i]*p
         }
-        if math.Abs(A[i][i]) < tol {
-            return nil, fmt.Errorf("matrix is singular")
-        }
-        x[i] = sum / A[i][i]
     }
-
-    return x, nil
+    result := make([]float64, len(answers))
+    for i := 0; i < n; i++ {
+        main_elem := matrix[i][index[i]]
+        for j := 0; j < n; j++ {
+            matrix[i][index[j]] /= main_elem
+        }
+        answers[i] /= main_elem
+    }
+    // обратный ход
+	for i := n - 1; i >= 0; i-- {
+		// начальное значение элемента x[i]
+		result[i] = answers[i]
+		for j := i + 1; j < n; j++ {
+			result[i] -= result[j] * matrix[i][index[j]];
+		}
+	}
+    return result, "ok"
 }
 
 func drawPlot(type_func int) {
@@ -113,16 +139,17 @@ func drawPlot(type_func int) {
     if type_func == 1 {
         f1 = plotter.NewFunction(func(x float64) float64 { 
             if 4 - x*x > 0 {
-                return math.Sqrt(math.Abs(4 - x*x)) 
-            }else {
+                return math.Sqrt(4 - x*x)
+            } else {
                 return 0
-            }})
+            } 
+        })
         g1 = plotter.NewFunction(func(x float64) float64 {
             if 4 - x*x > 0 {
                 return -math.Sqrt(4 - x*x)
-            }else {
+            } else {
                 return 0
-            }
+            } 
         })
         f2 = plotter.NewFunction(func(x float64) float64 { return 3 * x * x })
     }else {
@@ -140,7 +167,10 @@ func drawPlot(type_func int) {
                 return 0
             }
         })
-        f2 = plotter.NewFunction(func(x float64) float64 { return math.Log(math.Abs(x+1)) })
+
+        f2 = plotter.NewFunction(func(x float64) float64 { return math.Log(x+1) })
+        f2.XMin = -0.999999999999
+        f2.XMax = 100
     }
     // Создаем данные для графика первой функции
     f1.Samples = 10000 // количество точек на графике
@@ -149,7 +179,7 @@ func drawPlot(type_func int) {
     // Создаем данные для графика второй функции 
     f2.Samples = 10000 // количество точек на графике
     f2.Color = plotutil.Color(1) // цвет графика
-
+    
     g1.Samples = 10000 // количество точек на графике
     g1.Color = plotutil.Color(0) // цвет графика
 
@@ -162,11 +192,17 @@ func drawPlot(type_func int) {
     p.Y.Min = -10
     p.Y.Max = 10
 
+   
     // Сохраняем график в файл
     if err := p.Save(10*vg.Inch, 10*vg.Inch, "data/plot.png"); err != nil {
         panic(err)
     }
+    cmd := exec.Command("open", "data/plot.png")
+    if err := cmd.Run(); err != nil {
+        panic(err)
+    }
 }
+
 
 func main() {
     var f Func
@@ -208,15 +244,17 @@ func main() {
     default:
         panic("Неизвестная система")
     }
-
+    drawPlot(system_type)
     x0 := []float64{0.5, 0.5}
     fmt.Println("Введите начальное приближение:")
     fmt.Scanln(&x0[0], &x0[1])
-    drawPlot(system_type)
+    
     x, n, err := Newton(f, J, x0)
     if err != nil {
         fmt.Println("Error:", err)
     } else {
-        fmt.Println("Solution:", x, " Итераций:", n)
+        fmt.Println("Решение:", x, " Итераций:", n)
+        fmt.Printf("Проверка:\nf(x,y)) = %v;\n" +
+        "g(x,y) = %v\n", f(x)[0], f(x)[1])
     }
 }

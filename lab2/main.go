@@ -11,6 +11,8 @@ import (
     "gonum.org/v1/plot"
     "gonum.org/v1/plot/plotter"
     "gonum.org/v1/plot/vg"
+    "gonum.org/v1/gonum/diff/fd"
+    "os/exec"
 )
 
 var type_of_func float64 = 1
@@ -67,63 +69,70 @@ func f(x float64) float64 {
 }
 
 // Функция решения уравнения методом хорд
-func chordMethod(a float64, b float64, eps float64) (float64, float64, int) {
-    fa := f(a)
+func chordMethod(a float64, b float64, eps float64) (float64, float64, int, float64) {
     x_prev := 9999999999.
     iters := 0
-    for math.Abs(a-b) > eps {
-        x := (a*f(b) - b*f(a)) / (f(b) - f(a))
-        fx := f(x)
-
-        if math.Abs(fx) <= eps || math.Abs(x - x_prev) <= eps {
-            return x, fx, iters
-        }
+    x := a - (a*f(a) - b*f(a)) / (f(b) - f(a))
+    for math.Abs(f(x)) > eps || math.Abs(x - x_prev) > eps {
         x_prev = x
-        if fx*fa > 0 {
-            a = x
-            fa = fx
-        } else {
+        x = (a*f(b) - b*f(a)) / (f(b) - f(a))
+        
+        if f(x)*f(a) < 0 {
             b = x
+        } else {
+            a = x
         }
         iters++
     }
 
-    return (a + b) / 2, f((a + b) / 2), iters
+    return x, f(x), iters, x-x_prev
 }
 
 // Функция решения уравнения методом секущих
-func secantMethod(x0 float64, x1 float64, eps float64) (float64, float64, int) {
-    iter := 0
+func secantMethod(a float64, b float64, eps float64) (float64, float64, int) {
+    iters := 0
+    x0 := 0.
+    if f(a) * fd.Derivative(f, (fd.Derivative(f, a, nil)), nil) > 0 {
+        x0 = a
+    }else {
+        x0 = b
+    }
     var x2 float64
-    for math.Abs(x1-x0) > eps && math.Abs(x1) > eps {
+    x1 := x0 + 2*eps
+    fmt.Printf("x0 = %v, x1 = %v\n", x0, x1)
+    for math.Abs(x1-x0) > eps || math.Abs(f(x1)) > eps {
         x2 = x1 - f(x1)*(x1-x0)/(f(x1)-f(x0))
         x0 = x1
         x1 = x2
-        iter++
+        iters++
     }
-    return x2, f(x2), iter
+    return x2, f(x2), iters
 }
 
 // Функция решения уравнения методом простой итерации
-func simpleIteration(x0 float64, eps float64) (float64, float64, int) {
-    const maxIterations = 10000
+func simpleIteration(a float64, b float64, eps float64) (float64, float64, int) {
+    const maxIterations = 1000
+    var x0 float64
+    if fd.Derivative(f, a, nil) > fd.Derivative(f, b, nil){
+        x0 = a
+    }else {
+        x0 = b 
+    }
+    lambda := math.Max(fd.Derivative(f, a, nil), fd.Derivative(f, b, nil))
     x := x0
+    fmt.Printf("fi'(a) = %v\n", 1 - fd.Derivative(f, a, nil)/lambda)
+    fmt.Printf("fi'(b) = %v\n", 1 - fd.Derivative(f, b, nil)/lambda)
     for i := 0; i < maxIterations; i++ {
         // Вычисляем следующее приближение
-        xNext := x - f(x)/derivative(x)
+        xNext := x - f(x)/lambda
         // Проверяем достижение необходимой точности
-        if math.Abs(xNext-x) < eps {
+        if math.Abs(xNext-x) <= eps && math.Abs(f(xNext)) <= eps {
             return xNext, f(xNext), i+1
         }
         x = xNext
     }
     // Если не достигли нужной точности за максимальное число итераций, выдаем ошибку
     panic(fmt.Sprintf("Метод простых итераций не смог дать точное решение за %d итераций", maxIterations))
-}
-
-func derivative(x float64) float64 {
-    h := 1e-6
-    return (f(x+h) - f(x-h)) / (2 * h)
 }
 
 func verifyInputs(a float64, b float64, eps float64) bool {
@@ -145,41 +154,23 @@ func verifyInputs(a float64, b float64, eps float64) bool {
         return false
     }
 
-    // Проверяем, что на интервале [a, b] нет других корней
-    start := derivative(a)
-    check_up := 1
-    check_down := 1
-    prev := start
-
-    for i := a; i <= b; i += 0.1 {
-        pr := derivative(i)
-        if pr < prev {
-            check_up = 0
-        }
-        if prev < pr {
-            check_down = 0
-        }
-        prev = pr
-    }
-    if !((check_down == 1 || check_up == 1) && start * prev < 0) {
-        fmt.Println("Error: много корней на промежутке.")
-        return false
-    }
-
     return true
 }
 
-func drawPlot(a float64, b float64) {
+func drawPlot() {
     // Создаем новый график
     p := plot.New()
     p.Title.Text = "График функции"
     p.X.Label.Text = "X"
     p.Y.Label.Text = "Y"
-
+    p.X.Min = -10
+	p.X.Max = 10
+	p.Y.Min = -10
+	p.Y.Max = 10
     // Создаем массив точек для графика функции
     dx := 0.1
-    xmin := a-(b-a)/5
-    xmax := b+(b-a)/5
+    xmin := -5.
+    xmax := 5.
     n := int((xmax-xmin)/dx) + 1
     pts := make(plotter.XYs, n)
     for i := 0; i < n; i++ {
@@ -195,9 +186,13 @@ func drawPlot(a float64, b float64) {
         panic(err)
     }
     p.Add(line)
-
     // Сохраняем график в файл
-    if err := p.Save(4*vg.Inch, 4*vg.Inch, "data/plot.png"); err != nil {
+    if err := p.Save(8*vg.Inch, 8*vg.Inch, "data/plot.png"); err != nil {
+        panic(err)
+    }
+
+    cmd := exec.Command("open", "data/plot.png")
+    if err := cmd.Run(); err != nil {
         panic(err)
     }
 }
@@ -211,6 +206,17 @@ func saveToFile(data string) {
 
 func main() {
     fmt.Println("Лабораторная работа №2, Численное решение нелинейных уравнений и систем")
+    fmt.Println("\nВыберите номер функции")
+    fmt.Print("1 - 2.335x^3 + 3.98x^2 - 4.52x - 3.11\n" +
+              "2 - x^3 - x + 4\n" +
+              "3 - sin(x) + 0.1\n")
+    fmt.Scanln(&type_of_func)
+    if type_of_func > 3 || type_of_func < 1 {
+        log.Panicln("Выбрана неверная функция")
+    }
+    
+    drawPlot()
+    
     fmt.Println("Взять исходные данные из файла (+) или ввести с клавиатуры (-)?")
     input_type := ""
     fmt.Scanln(&input_type)
@@ -224,16 +230,6 @@ func main() {
     output_type := ""
     fmt.Scanln(&output_type)
     
-    
-
-    fmt.Println("\nВыберите номер функции")
-    fmt.Print("1 - 2.335x^3 + 3.98x^2 - 4.52x - 3.11\n" +
-              "2 - x^3 - x + 4\n" +
-              "3 - sin(x) + 0.1\n")
-    fmt.Scanln(&type_of_func)
-    if type_of_func > 3 || type_of_func < 1 {
-        log.Panicln("Выбрана неверная функция")
-    }
     fmt.Println("\nВыберите номер метода решения")
     fmt.Print("1 - Метод хорд\n" +
               "2 - Метод секущих\n" +
@@ -248,24 +244,27 @@ func main() {
     if !verifyInputs(a, b, eps) {
         panic("Проверяте данные!")
     }
-    drawPlot(a, b)
+
     // решаем уравнение
     var x, fx float64
     var iters int
     switch type_of_method {
     case 1:
-        x, fx, iters = chordMethod(a, b, eps)
+        h := 0.
+        x, fx, iters, h = chordMethod(a, b, eps)
+        fmt.Println(h)
     case 2:
         x, fx, iters = secantMethod(a, b, eps)
     case 3:
-        x, fx, iters = simpleIteration((a+b)/2, eps)
+        x, fx, iters = simpleIteration(a, b, eps)
     default:
         log.Fatal("Метода не существует")
     }
     
     // выводим результат
     if output_type == "-" {
-        fmt.Println("Решение:", x, fx, iters)
+        fmt.Println("Решение: x =", x, "f(x) =", fx, "Количество интераций:", iters)
+        
     } else {
         saveToFile(strconv.FormatFloat(x, 'E', -1, 64) + " " +
             strconv.FormatFloat(fx, 'E', -1, 64) + " " + strconv.Itoa(iters))

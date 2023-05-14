@@ -20,6 +20,7 @@ var POINTS_COUNT int = 500
 var DOTS [][]float64
 var DELTA float64 = 1
 
+
 func CheckFrame(dot float64) {
     if dot < MIN_POINT {
         MIN_POINT = dot
@@ -195,7 +196,6 @@ func NewtonPolynomial(arg float64) (float64) {
 
 
 func httpserver(w http.ResponseWriter, _ *http.Request) {
-    
     xValues := []float64{}
     yLagrangeValues := []float64{}
     yNewtonValues := []float64{}
@@ -217,7 +217,7 @@ func httpserver(w http.ResponseWriter, _ *http.Request) {
         yValues = append(yValues, DOTS[i][1])
     }
     line2 := charts.NewLine()
-    line.AddXAxis(xValues)
+    line2.AddXAxis(xValues)
     line2.AddYAxis("Исходные", yValues)
     line2.Render(w)
 }
@@ -240,6 +240,7 @@ func main() {
     fmt.Printf("По Лагранжу: %.9f\n", LagrangePolynomial(arg))
     fmt.Printf("По Ньютону: %.9f\n", NewtonPolynomial(arg))
 
+    // график
     http.HandleFunc("/", httpserver)
 	http.ListenAndServe(":8080", nil)  
 }

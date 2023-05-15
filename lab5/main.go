@@ -166,6 +166,7 @@ func LagrangePolynomial(arg float64) (float64) {
 }
 
 
+// разделённые разности
 func f(k int) (float64) {
     k += 1
     result := 0.

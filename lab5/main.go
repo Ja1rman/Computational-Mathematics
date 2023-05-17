@@ -19,6 +19,7 @@ var MAX_POINT float64 = -INF
 var POINTS_COUNT int = 500
 var DOTS [][]float64
 var DELTA float64 = 1
+var Delta [][]float64
 
 
 func CheckFrame(dot float64) {
@@ -130,13 +131,14 @@ func TableOfDifferences() {
     for i := 0; i < POINTS_COUNT; i++ {
         fmt.Printf("%f\t", DOTS[i][0])
     }
+    
     var prevDelta []float64
     fmt.Print("\ny\t")
     for i := 0; i < POINTS_COUNT; i++ {
         fmt.Printf("%f\t", DOTS[i][1])
         prevDelta = append(prevDelta, DOTS[i][1])
     }
-    
+    Delta = append(Delta, prevDelta)
     for i := 0; i < POINTS_COUNT-1; i++ {
         fmt.Printf("\nΔ^%dy\t", i+1)
         var newDelta []float64
@@ -145,6 +147,7 @@ func TableOfDifferences() {
             fmt.Printf("%f\t", newDelta[i])
         }
         prevDelta = newDelta
+        Delta = append(Delta, prevDelta)
     }
 }
 
@@ -166,7 +169,6 @@ func LagrangePolynomial(arg float64) (float64) {
 }
 
 
-// разделённые разности
 func f(k int) (float64) {
     k += 1
     result := 0.
@@ -196,19 +198,63 @@ func NewtonPolynomial(arg float64) (float64) {
 }
 
 
+func NewtonHalf(arg float64) (float64) {
+    h := DOTS[1][0]-DOTS[0][0]
+    result := 0.
+    if arg <= DOTS[int(len(DOTS)/2)][0] {
+
+        targetX := DOTS[0][0]
+        targetI := 0
+        for i := 0; i <= len(DOTS)/2; i++ {
+            if DOTS[i][0] < arg {
+                targetX = DOTS[i][0]
+                targetI = i
+            } else {
+                break
+            }
+        }
+        t := (arg - targetX) / h
+        result += Delta[0][targetI]
+        num := t
+        fact := 1.
+        for i := 0; i < len(Delta); i++ {
+            if len(Delta[i]) < targetI +2{
+                break
+            }
+            fact *= float64(i)+1
+            result += num * Delta[i+1][targetI]/fact
+            num *= t-float64(i)-1
+        }        
+    } else {
+        t := (arg - DOTS[len(DOTS)-1][0]) / h
+        result += Delta[0][POINTS_COUNT-1]
+        num := t
+        fact := 1.
+        for i := 0; i < len(Delta)-1; i++ {
+            fact *= float64(i)+1
+            result += num * Delta[i+1][len(Delta[i+1])-1]/fact
+            num *= t-float64(i)-1
+        }
+    }
+    return result
+}
+
 func httpserver(w http.ResponseWriter, _ *http.Request) {
     xValues := []float64{}
     yLagrangeValues := []float64{}
+    yNewton2Values := []float64{}
     yNewtonValues := []float64{}
     for i := MIN_POINT-DELTA; i < MAX_POINT+DELTA; i += 0.001 {
         xValues = append(xValues, i)
         yLagrangeValues = append(yLagrangeValues, LagrangePolynomial(i))
         yNewtonValues = append(yNewtonValues, NewtonPolynomial(i))
+        yNewton2Values = append(yNewton2Values, NewtonHalf(i))
     }
 	line := charts.NewLine()
 	line.AddXAxis(xValues)
     line.AddYAxis("Лагранж", yLagrangeValues, charts.LineOpts{Smooth: true})
-    line.AddYAxis("Ньютон", yNewtonValues, charts.LineOpts{Smooth: true})
+    line.AddYAxis("Ньютон конечные", yNewton2Values, charts.LineOpts{Smooth: true})
+    line.AddYAxis("Ньютон разделённые", yNewtonValues, charts.LineOpts{Smooth: true})
 	line.Render(w)
 
     xValues = []float64{}
@@ -237,11 +283,17 @@ func main() {
     fmt.Println("\nВведите значение аргумента для интерполирования")
     arg := 0.
     fmt.Scanln(&arg)
+    lagrange := LagrangePolynomial(arg)
+    newton := NewtonPolynomial(arg)
     
-    fmt.Printf("По Лагранжу: %.9f\n", LagrangePolynomial(arg))
-    fmt.Printf("По Ньютону: %.9f\n", NewtonPolynomial(arg))
-
+    if math.IsNaN(lagrange) || math.IsNaN(newton) || math.IsInf(lagrange, 0) || math.IsInf(newton, 0) {
+       log.Fatal("Неверные данные") 
+    } 
+    newton2 := NewtonHalf(arg)
+    fmt.Printf("По Лагранжу: %.9f\n", lagrange)
+    fmt.Printf("По Ньютону конечные: %.9f\n", newton2)
+    fmt.Printf("По Ньютону разделённые: %.9f\n", newton)
     // график
     http.HandleFunc("/", httpserver)
-	http.ListenAndServe(":8080", nil)  
+    http.ListenAndServe(":8080", nil)  
 }

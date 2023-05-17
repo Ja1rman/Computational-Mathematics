@@ -233,7 +233,7 @@ func NewtonHalf(arg float64) (float64) {
         for i := 0; i < len(Delta)-1; i++ {
             fact *= float64(i)+1
             result += num * Delta[i+1][len(Delta[i+1])-1]/fact
-            num *= t-float64(i)-1
+            num *= t+float64(i)+1
         }
     }
     return result

@@ -152,20 +152,28 @@ func EulerForAdams(a float64, h float64) ([][]float64, float64) {
 
 
 func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
-    dots, h := EulerForAdams(a, h)
-    epsAdams := 0.
-    for i := 3; dots[i][0] <= b; i++ {
-        df := f(dots[i][0], dots[i][1]) - f(dots[i-1][0], dots[i-1][1])
-        d2f := f(dots[i][0], dots[i][1]) - 2 * f(dots[i-1][0], dots[i-1][1]) + 
-            f(dots[i-2][0], dots[i-2][1])
-        d3f := f(dots[i][0], dots[i][1]) - 3 * f(dots[i-1][0], dots[i-1][1]) + 
-            3 * f(dots[i-2][0], dots[i-2][1]) - f(dots[i-3][0], dots[i-3][1])
-        dots = append(dots, []float64{dots[i][0] + h,
-                      dots[i][1] + h * f(dots[i][0], dots[i][1]) +
-                      (h*h) * df / 2 + 5 * (h*h*h) * d2f / 12 + 3 * (h*h*h*h) * d3f / 8})
-        epsAdams = math.Max(epsAdams, math.Abs(f2(dots[i+1][0])-dots[i+1][1]))
+    dots := [][]float64{}
+    epsAdams := 99999.
+    for ;epsAdams > eps; {
+        dots, h = EulerForAdams(a, h)
+        epsAdamsTemp := 0.
+        for i := 3; dots[i][0] <= b; i++ {
+            df := f(dots[i][0], dots[i][1]) - f(dots[i-1][0], dots[i-1][1])
+            d2f := f(dots[i][0], dots[i][1]) - 2 * f(dots[i-1][0], dots[i-1][1]) + 
+                f(dots[i-2][0], dots[i-2][1])
+            d3f := f(dots[i][0], dots[i][1]) - 3 * f(dots[i-1][0], dots[i-1][1]) + 
+                3 * f(dots[i-2][0], dots[i-2][1]) - f(dots[i-3][0], dots[i-3][1])
+            dots = append(dots, []float64{dots[i][0] + h,
+                        dots[i][1] + h * f(dots[i][0], dots[i][1]) +
+                        (h*h) * df / 2 + 5 * (h*h*h) * d2f / 12 + 3 * (h*h*h*h) * d3f / 8})
+            epsAdamsTemp = math.Max(epsAdamsTemp, math.Abs(f2(dots[i+1][0])-dots[i+1][1]))
+            if (epsAdamsTemp > eps) {
+                break
+            } 
+        }
+        epsAdams = epsAdamsTemp
+        h /= 2
     }
-    
     saveToFile(fmt.Sprintf("\n\nПогрешность метода Адамса: %f\n", epsAdams))
     return dots
 }

@@ -84,17 +84,20 @@ func f2(x float64) (float64) {
 
 func EulerMethod(a float64, b float64, h float64) ([][]float64) {
     dots := [][]float64{{a, y0}}
-    for ;; {
-        y := dots[0][1] + h * f(dots[0][0], dots[0][1])
-        y2 := dots[0][1] + h/2 * f(dots[0][0], dots[0][1])
-        if math.Abs(y-y2)/(math.Pow(2, 4) - 1) <= eps {
-            break
-        } 
-        h /= 2
-    }
-    for i := 0; dots[i][0] <= b; i++ {
-        dots = append(dots, []float64{dots[i][0] + h,
-                dots[i][1] + h * f(dots[i][0], dots[i][1])})
+    nowEps := 9999.
+    for ;nowEps > eps; {
+        dots = [][]float64{{a, y0}}
+        for i := 0; dots[i][0] < b; i++ {
+            y := dots[i][1] + h * f(dots[i][0], dots[i][1])
+            y2 := dots[i][1] + h/2 * f(dots[i][0], dots[i][1])
+            nowEps = math.Abs(y-y2)/(math.Pow(2, 2) - 1)
+            if nowEps > eps {
+                h /= 2
+                break
+            } 
+            dots = append(dots, []float64{dots[i][0] + h, y})
+        }
+        
     }
     saveToFile(fmt.Sprintf("Шаг метода Эйлера: %f\n", h))
     return dots
@@ -114,18 +117,19 @@ func RungeKuttaFormula(x float64, y float64, h float64) (float64) {
 
 func RungeKuttaMethod(a float64, b float64, h float64) ([][]float64) {
     dots := [][]float64{{a, y0}}
-    for ;; {
-        y := RungeKuttaFormula(dots[0][0], dots[0][1], h) 
-        y2 := RungeKuttaFormula(dots[0][0], dots[0][1], h/2) 
-        if math.Abs(y-y2)/(math.Pow(2, 4) - 1) <= eps {
-            break
+    nowEps := 9999.
+    for ;nowEps > eps; {
+        dots = [][]float64{{a, y0}}
+        for i := 0; dots[i][0] < b; i++ {
+            y := RungeKuttaFormula(dots[i][0], dots[i][1], h) 
+            y2 := RungeKuttaFormula(dots[i][0], dots[i][1], h/2) 
+            nowEps = math.Abs(y-y2)/(math.Pow(2, 4) - 1)
+            if nowEps > eps { 
+                h /= 2
+                break
+            } 
+            dots = append(dots, []float64{dots[i][0] + h, y})
         }
-        h /= 2
-    }
-    
-    for i := 0; dots[i][0] <= b; i++ {
-        y := RungeKuttaFormula(dots[i][0], dots[i][1], h) 
-        dots = append(dots, []float64{dots[i][0] + h, y})
     }
     saveToFile(fmt.Sprintf("\n\nШаг метода Рунге-Кутта: %f\n", h))
     
@@ -133,19 +137,21 @@ func RungeKuttaMethod(a float64, b float64, h float64) ([][]float64) {
 }
 
 
-func EulerForAdams(a float64, h float64) ([][]float64, float64) {
+func RungeKutaForAdams(a float64, h float64) ([][]float64, float64) {
     dots := [][]float64{{a, y0}}
-    for ;; {
-        y := dots[0][1] + h * f(dots[0][0], dots[0][1])
-        y2 := dots[0][1] + h/2 * f(dots[0][0], dots[0][1])
-        if math.Abs(y-y2)/(math.Pow(2, 4) - 1) <= eps {
-            break
-        } 
-        h /= 2
-    }
-    for i := 0; i < 3; i++ {
-        dots = append(dots, []float64{dots[i][0] + h,
-                dots[i][1] + h * f(dots[i][0], dots[i][1])})
+    nowEps := 9999.
+    for ;nowEps > eps; {
+        dots = [][]float64{{a, y0}}
+        for i := 0; i < 3; i++ {
+            y := RungeKuttaFormula(dots[i][0], dots[i][1], h) 
+            y2 := RungeKuttaFormula(dots[i][0], dots[i][1], h/2) 
+            nowEps = math.Abs(y-y2)/(math.Pow(2, 4) - 1)
+            if nowEps > eps { 
+                h /= 2
+                break
+            } 
+            dots = append(dots, []float64{dots[i][0] + h, y})
+        }
     }
     return dots, h
 }
@@ -155,9 +161,9 @@ func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
     dots := [][]float64{}
     epsAdams := 99999.
     for ;epsAdams > eps; {
-        dots, h = EulerForAdams(a, h)
+        dots, h = RungeKutaForAdams(a, h)
         epsAdamsTemp := 0.
-        for i := 3; dots[i][0] <= b; i++ {
+        for i := 3; dots[i][0] < b; i++ {
             df := f(dots[i][0], dots[i][1]) - f(dots[i-1][0], dots[i-1][1])
             d2f := f(dots[i][0], dots[i][1]) - 2 * f(dots[i-1][0], dots[i-1][1]) + 
                 f(dots[i-2][0], dots[i-2][1])
@@ -302,7 +308,7 @@ func main() {
     for i := 0; i < len(dots); i++ {
         saveToFile(fmt.Sprintf("%f\t", dots[i][1]))
     }
-
+    
     // график
     http.HandleFunc("/", httpserver)
 	http.ListenAndServe(":8080", nil)  

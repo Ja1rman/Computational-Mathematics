@@ -90,14 +90,14 @@ func EulerMethod(a float64, b float64, h float64) ([][]float64) {
         for i := 0; dots[i][0] < b; i++ {
             y := dots[i][1] + h * f(dots[i][0], dots[i][1])
             y2 := dots[i][1] + h/2 * f(dots[i][0], dots[i][1])
-            nowEps = math.Abs(y-y2)/(math.Pow(2, 2) - 1)
+            y3 := dots[i][1] + h/2 + h/2 * f(dots[i][0]+h/2, y2)
+            nowEps = math.Abs(y-y3)/(math.Pow(2, 2) - 1)
             if nowEps > eps {
                 h /= 2
                 break
             } 
             dots = append(dots, []float64{dots[i][0] + h, y})
         }
-        
     }
     saveToFile(fmt.Sprintf("Шаг метода Эйлера: %f\n", h))
     return dots
@@ -123,7 +123,8 @@ func RungeKuttaMethod(a float64, b float64, h float64) ([][]float64) {
         for i := 0; dots[i][0] < b; i++ {
             y := RungeKuttaFormula(dots[i][0], dots[i][1], h) 
             y2 := RungeKuttaFormula(dots[i][0], dots[i][1], h/2) 
-            nowEps = math.Abs(y-y2)/(math.Pow(2, 4) - 1)
+            y3 := RungeKuttaFormula(dots[i][0]+h/2, y2, h/2) 
+            nowEps = math.Abs(y-y3)/(math.Pow(2, 4) - 1)
             if nowEps > eps { 
                 h /= 2
                 break
@@ -145,7 +146,8 @@ func RungeKutaForAdams(a float64, h float64) ([][]float64, float64) {
         for i := 0; i < 3; i++ {
             y := RungeKuttaFormula(dots[i][0], dots[i][1], h) 
             y2 := RungeKuttaFormula(dots[i][0], dots[i][1], h/2) 
-            nowEps = math.Abs(y-y2)/(math.Pow(2, 4) - 1)
+            y3 := RungeKuttaFormula(dots[i][0]+h/2, y2, h/2) 
+            nowEps = math.Abs(y-y3)/(math.Pow(2, 4) - 1)
             if nowEps > eps { 
                 h /= 2
                 break
@@ -161,8 +163,8 @@ func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
     dots := [][]float64{}
     epsAdams := 99999.
     for ;epsAdams > eps; {
-        dots, h = RungeKutaForAdams(a, h)
         epsAdamsTemp := 0.
+        dots, h = RungeKutaForAdams(a, h)
         for i := 3; dots[i][0] < b; i++ {
             df := f(dots[i][0], dots[i][1]) - f(dots[i-1][0], dots[i-1][1])
             d2f := f(dots[i][0], dots[i][1]) - 2 * f(dots[i-1][0], dots[i-1][1]) + 
@@ -173,7 +175,7 @@ func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
                         dots[i][1] + h * f(dots[i][0], dots[i][1]) +
                         (h*h) * df / 2 + 5 * (h*h*h) * d2f / 12 + 3 * (h*h*h*h) * d3f / 8})
             epsAdamsTemp = math.Max(epsAdamsTemp, math.Abs(f2(dots[i+1][0])-dots[i+1][1]))
-            if (epsAdamsTemp > eps) {
+            if (epsAdamsTemp > eps ) {
                 break
             } 
         }

@@ -68,7 +68,7 @@ func f2(x float64) (float64) {
         } else {
             const_1 = (1/y0+x0) *  math.Pow(math.E, x0)
         }
-        return - math.Pow(math.E, x0) / (x * math.Pow(math.E, x0) + const_1)
+        return - math.Pow(math.E, x) / (x * math.Pow(math.E, x) + const_1)
     case 2:
         const_2 := (y0 - x0*x0*x0 - 3*x0 + 2) * math.Pow(math.E, x0)
         return const_2 * math.Pow(math.E, -x) + x*x*x + 3*x - 2

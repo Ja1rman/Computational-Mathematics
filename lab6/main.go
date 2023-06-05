@@ -64,11 +64,12 @@ func f2(x float64) (float64) {
     case 1:
         const_1 := 0.
         if (y0 == 0) {
-            const_1 = 0.
+            return - 1 / x
         } else {
             const_1 = (1/y0+x0) *  math.Pow(math.E, x0)
+            return - math.Pow(math.E, x) / (x * math.Pow(math.E, x) + const_1)
         }
-        return - math.Pow(math.E, x) / (x * math.Pow(math.E, x) + const_1)
+        
     case 2:
         const_2 := (y0 - x0*x0*x0 - 3*x0 + 2) * math.Pow(math.E, x0)
         return const_2 * math.Pow(math.E, -x) + x*x*x + 3*x - 2
@@ -162,9 +163,13 @@ func RungeKutaForAdams(a float64, h float64) ([][]float64, float64) {
 func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
     dots := [][]float64{}
     epsAdams := 99999.
+    xNext := a
+    H := h
+    dotsFromRungeKutta := [][]float64{}
+    dotsFromRungeKutta, h = RungeKutaForAdams(a, H)
     for ;epsAdams > eps; {
         epsAdamsTemp := 0.
-        dots, h = RungeKutaForAdams(a, h)
+        dots = dotsFromRungeKutta
         for i := 3; dots[i][0] < b; i++ {
             df := f(dots[i][0], dots[i][1]) - f(dots[i-1][0], dots[i-1][1])
             d2f := f(dots[i][0], dots[i][1]) - 2 * f(dots[i-1][0], dots[i-1][1]) + 
@@ -175,6 +180,7 @@ func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
                         dots[i][1] + h * f(dots[i][0], dots[i][1]) +
                         (h*h) * df / 2 + 5 * (h*h*h) * d2f / 12 + 3 * (h*h*h*h) * d3f / 8})
             epsAdamsTemp = math.Max(epsAdamsTemp, math.Abs(f2(dots[i+1][0])-dots[i+1][1]))
+
             if (epsAdamsTemp > eps ) {
                 break
             } 
@@ -183,6 +189,15 @@ func AdamsMethod(a float64, b float64, h float64) ([][]float64) {
         h /= 2
     }
     saveToFile(fmt.Sprintf("\n\nПогрешность метода Адамса: %f\n", epsAdams))
+    res := ""
+    for i := 0; i < len(dots); i++ {
+        if ((xNext - dots[i][0]) <= eps/1000) {
+            res += fmt.Sprintf("%f\t", dots[i][1])
+            xNext += H
+        }
+    }
+    
+    saveToFile(fmt.Sprintf("y в узлах:\t\t\t" + res + "\n"))
     return dots
 }
 
